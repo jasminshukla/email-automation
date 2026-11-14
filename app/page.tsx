@@ -1,3 +1,5 @@
+import { DashboardView } from '../components/DashboardView';
+
 export default function Page() {
-  return <h1>Hello, Home page!</h1>
+  return <DashboardView />;
 }
