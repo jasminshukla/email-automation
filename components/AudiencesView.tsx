@@ -24,6 +24,7 @@ export function AudiencesView() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [editName, setEditName] = useState('');
   const [addContactId, setAddContactId] = useState('');
+  const [newEmail, setNewEmail] = useState({ email: '', firstName: '', lastName: '' });
   const [editing, setEditing] = useState<Contact | null>(null);
   const [memberForm, setMemberForm] = useState({
     firstName: '',
@@ -34,8 +35,10 @@ export function AudiencesView() {
   const [dragId, setDragId] = useState('');
   const [over, setOver] = useState<'in' | 'out' | ''>('');
   const [saving, setSaving] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
   const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
   async function load() {
@@ -90,7 +93,7 @@ export function AudiencesView() {
   useEffect(() => {
     if (!selected) return;
     if (focus === 'edit') nameRef.current?.focus();
-    if (focus === 'add') boardRef.current?.focus();
+    if (focus === 'add') emailRef.current?.focus();
   }, [selected, focus]);
 
   async function openAudience(audience: Audience, nextFocus: 'add' | 'edit' | null = null) {
@@ -98,6 +101,7 @@ export function AudiencesView() {
     setEditName(audience.name);
     setEditing(null);
     setAddContactId('');
+    setNewEmail({ email: '', firstName: '', lastName: '' });
     setFocus(nextFocus);
     try {
       const [memberList, contactList] = await Promise.all([
@@ -130,6 +134,51 @@ export function AudiencesView() {
       notify(err instanceof Error ? err.message : 'Could not update audience');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function addNewEmail(event: FormEvent) {
+    event.preventDefault();
+    if (!selected) return;
+    const email = newEmail.email.trim();
+    if (!email) return;
+    const existing = contacts.find(
+      (contact) => contact.email.toLowerCase() === email.toLowerCase(),
+    );
+    if (existing && members.some((member) => member.id === existing.id)) {
+      notify('That email is already on this list');
+      return;
+    }
+    setAdding(true);
+    try {
+      if (existing) {
+        await api(`/api/contacts/${existing.id}/segments`, {
+          method: 'POST',
+          body: JSON.stringify({ segmentId: selected.id }),
+        });
+      } else {
+        await api('/api/contacts', {
+          method: 'POST',
+          body: JSON.stringify({
+            email,
+            firstName: newEmail.firstName.trim(),
+            lastName: newEmail.lastName.trim(),
+            segmentId: selected.id,
+          }),
+        });
+      }
+      notify('Email added to the audience');
+      setNewEmail({ email: '', firstName: '', lastName: '' });
+      const [memberList, contactList] = await Promise.all([
+        api<{ data: Contact[] }>(`/api/segments/${selected.id}/contacts`),
+        api<{ data: Contact[] }>('/api/contacts'),
+      ]);
+      setMembers(memberList.data);
+      setContacts(contactList.data);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Could not add email');
+    } finally {
+      setAdding(false);
     }
   }
 
@@ -331,6 +380,7 @@ export function AudiencesView() {
             setMembers([]);
             setEditing(null);
             setFocus(null);
+            setNewEmail({ email: '', firstName: '', lastName: '' });
           }}
         >
           <form className="form-grid" onSubmit={saveName}>
@@ -348,7 +398,50 @@ export function AudiencesView() {
               {saving ? 'Saving…' : 'Save name'}
             </button>
           </form>
-          <p className="hint">Drag a person onto the list to add them, or drag them back off to remove them.</p>
+          <form className="form-grid add-email" onSubmit={addNewEmail}>
+            <h3>Add a new email</h3>
+            <p className="hint">
+              Creates the contact and puts them on this list. An address that already exists is added here.
+            </p>
+            <div className="field">
+              <label htmlFor="newEmail">Email</label>
+              <input
+                id="newEmail"
+                ref={emailRef}
+                type="email"
+                required
+                placeholder="alex@company.com"
+                value={newEmail.email}
+                onChange={(event) => setNewEmail({ ...newEmail, email: event.target.value })}
+              />
+            </div>
+            <div className="two-col">
+              <div className="field">
+                <label htmlFor="newFirst">First name</label>
+                <input
+                  id="newFirst"
+                  value={newEmail.firstName}
+                  onChange={(event) =>
+                    setNewEmail({ ...newEmail, firstName: event.target.value })
+                  }
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="newLast">Last name</label>
+                <input
+                  id="newLast"
+                  value={newEmail.lastName}
+                  onChange={(event) =>
+                    setNewEmail({ ...newEmail, lastName: event.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <button className="btn" disabled={adding}>
+              {adding ? 'Adding…' : 'Add email'}
+            </button>
+          </form>
+          <p className="hint">Or drag someone who is already a contact onto the list.</p>
           <div className="drop-board" ref={boardRef} tabIndex={-1}>
             <section
               className={over === 'out' ? 'drop-col over' : 'drop-col'}

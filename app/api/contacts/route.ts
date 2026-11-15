@@ -28,15 +28,24 @@ export async function POST(request: Request) {
 
     const resend = getResend();
     const segmentId = body.segmentId ? String(body.segmentId) : '';
-    const created = unwrap(
-      await resend.contacts.create({
-        email,
-        firstName: body.firstName ? String(body.firstName) : undefined,
-        lastName: body.lastName ? String(body.lastName) : undefined,
-        unsubscribed: Boolean(body.unsubscribed),
-        segments: segmentId ? [{ id: segmentId }] : undefined,
-      }),
-    );
+    const payload = {
+      email,
+      firstName: body.firstName ? String(body.firstName) : undefined,
+      lastName: body.lastName ? String(body.lastName) : undefined,
+      unsubscribed: Boolean(body.unsubscribed),
+      segments: segmentId ? [{ id: segmentId }] : undefined,
+    };
+    const result = await resend.contacts.create(payload);
+    let created;
+    if (result.error) {
+      const message = (result.error.message || '').toLowerCase();
+      const duplicate =
+        result.error.statusCode === 409 || message.includes('already exist');
+      if (!duplicate) unwrap(result);
+      created = unwrap(await resend.contacts.get({ email }));
+    } else {
+      created = unwrap(result);
+    }
 
     if (segmentId && created.id) {
       try {

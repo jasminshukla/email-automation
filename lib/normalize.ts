@@ -112,7 +112,25 @@ export function normalizeCampaign(value: unknown): Campaign {
       : item.sent_at
         ? String(item.sent_at)
         : null,
+    from: item.from ? String(item.from) : null,
+    subject: item.subject ? String(item.subject) : null,
+    html: item.html ? String(item.html) : null,
+    previewText: item.previewText
+      ? String(item.previewText)
+      : item.preview_text
+        ? String(item.preview_text)
+        : null,
+    replyTo: replyList(item.replyTo ?? item.reply_to),
   };
+}
+
+function replyList(value: unknown) {
+  if (Array.isArray(value)) {
+    const joined = value.map((item) => String(item)).filter(Boolean).join(', ');
+    return joined || null;
+  }
+  if (value) return String(value);
+  return null;
 }
 
 export function listFrom(payload: unknown): Record<string, unknown>[] {

@@ -40,4 +40,9 @@ export type Campaign = {
   createdAt?: string | null;
   scheduledAt?: string | null;
   sentAt?: string | null;
+  from?: string | null;
+  subject?: string | null;
+  html?: string | null;
+  previewText?: string | null;
+  replyTo?: string | null;
 };

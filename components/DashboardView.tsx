@@ -110,7 +110,11 @@ export function DashboardView() {
             </p>
           ) : (
             campaigns.slice(0, 6).map((campaign) => (
-              <div className="campaign-row" key={campaign.id}>
+              <Link
+                className="campaign-row"
+                key={campaign.id}
+                href={`/campaigns?open=${campaign.id}`}
+              >
                 <div>
                   <strong>{campaign.name}</strong>
                   <div className="muted">
@@ -122,7 +126,7 @@ export function DashboardView() {
                   </div>
                 </div>
                 <StatusBadge status={campaign.status} />
-              </div>
+              </Link>
             ))
           )}
         </div>
