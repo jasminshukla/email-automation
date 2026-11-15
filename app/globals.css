@@ -596,6 +596,24 @@ tbody tr:hover { background: color-mix(in oklch, var(--muted-bg) 65%, transparen
   color: inherit;
 }
 .audience-card .actions { margin-top: 12px; }
+.file-drop {
+  display: grid;
+  gap: 4px;
+  place-items: center;
+  min-height: 92px;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--muted-bg) 45%, transparent);
+  text-align: center;
+  cursor: pointer;
+}
+.file-drop.over {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.file-drop strong { font-size: 14px; font-weight: 600; }
+.file-drop input { display: none; }
 .drop-board {
   display: grid;
   grid-template-columns: 1fr 1fr;

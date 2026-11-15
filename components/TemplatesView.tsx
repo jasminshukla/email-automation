@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useState } from 'react';
+import { DragEvent, FormEvent, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '../lib/api';
+import { htmlFromUpload, titleFromHtml } from '../lib/html-zip';
 import type { Template } from '../lib/types';
 import { EmptyState } from './EmptyState';
 import { IconPlus } from './Icons';
@@ -36,6 +37,8 @@ export function TemplatesView() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyTemplate);
+  const [dropping, setDropping] = useState(false);
+  const [uploadName, setUploadName] = useState('');
 
   async function load() {
     const result = await api<{ data: Template[] }>('/api/templates');
@@ -71,7 +74,34 @@ export function TemplatesView() {
   function closeCreate() {
     setOpen(false);
     setForm(emptyTemplate);
+    setUploadName('');
+    setDropping(false);
     if (params.get('new')) router.replace('/templates');
+  }
+
+  async function useUpload(file: File) {
+    try {
+      const html = await htmlFromUpload(file);
+      const baseName = file.name.replace(/\.(zip|html?)$/i, '');
+      const title = titleFromHtml(html);
+      setForm((current) => ({
+        ...current,
+        html,
+        name: current.name || baseName,
+        subject: current.subject || title,
+      }));
+      setUploadName(file.name);
+      notify('HTML loaded from the file');
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Could not read that file');
+    }
+  }
+
+  function dropUpload(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDropping(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) void useUpload(file);
   }
 
   async function createTemplate(event: FormEvent) {
@@ -214,6 +244,29 @@ export function TemplatesView() {
                 />
               </div>
             </div>
+            <label
+              className={dropping ? 'file-drop over' : 'file-drop'}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDropping(true);
+              }}
+              onDragLeave={() => setDropping(false)}
+              onDrop={dropUpload}
+            >
+              <strong>Upload an HTML zip</strong>
+              <span className="hint">
+                {uploadName || 'Drop a .zip or .html file here, or click to choose one.'}
+              </span>
+              <input
+                type="file"
+                accept=".zip,.html,.htm,application/zip,text/html"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void useUpload(file);
+                  event.target.value = '';
+                }}
+              />
+            </label>
             <div className="field">
               <label htmlFor="templateHtml">Email content</label>
               <textarea
