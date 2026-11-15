@@ -1,25 +1,31 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
-import type { Campaign } from '../lib/types';
+import type { Audience, Campaign } from '../lib/types';
 import { EmptyState } from './EmptyState';
 import { IconPlus, IconSearch } from './Icons';
+import { Modal } from './Modal';
 import { PageHeader } from './PageHeader';
 import { StatusBadge } from './StatusBadge';
 import { useToast } from './Toast';
 
 export function CampaignsView() {
   const { notify } = useToast();
+  const router = useRouter();
   const params = useSearchParams();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [query, setQuery] = useState(params.get('q') || '');
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState<Campaign | null>(null);
+  const [audienceName, setAudienceName] = useState('');
+  const [detailError, setDetailError] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
 
   async function load() {
     try {
@@ -41,6 +47,41 @@ export function CampaignsView() {
     setQuery(params.get('q') || '');
   }, [params]);
 
+  const openId = params.get('open');
+
+  useEffect(() => {
+    if (!openId) return;
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError('');
+    setDetail(
+      campaigns.find((campaign) => campaign.id === openId) || { id: openId, status: '' },
+    );
+    Promise.all([
+      api<{ data: Campaign }>(`/api/campaigns/${openId}`),
+      api<{ data: Audience[] }>('/api/segments'),
+    ])
+      .then(([campaign, audiences]) => {
+        if (cancelled) return;
+        setDetail(campaign.data);
+        const segmentId = campaign.data.segmentId || campaign.data.audienceId;
+        const match = audiences.data.find((audience) => audience.id === segmentId);
+        setAudienceName(match?.name || '');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setDetailError(err instanceof Error ? err.message : 'Could not load campaign');
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Reload only when the opened campaign changes. The list refresh should not wipe the preview.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return campaigns;
@@ -60,6 +101,22 @@ export function CampaignsView() {
     } finally {
       setBusyId('');
     }
+  }
+
+  function openCampaign(id: string) {
+    const next = new URLSearchParams(params.toString());
+    next.set('open', id);
+    router.replace(`/campaigns?${next.toString()}`);
+  }
+
+  function closeCampaign() {
+    const next = new URLSearchParams(params.toString());
+    next.delete('open');
+    const queryString = next.toString();
+    router.replace(queryString ? `/campaigns?${queryString}` : '/campaigns');
+    setDetail(null);
+    setAudienceName('');
+    setDetailError('');
   }
 
   async function cancel(id: string) {
@@ -126,7 +183,16 @@ export function CampaignsView() {
                 {filtered.map((campaign) => (
                   <tr key={campaign.id}>
                     <td>
-                      <strong>{campaign.name || 'Untitled campaign'}</strong>
+                      <button
+                        className="link-btn"
+                        type="button"
+                        onClick={() => openCampaign(campaign.id)}
+                      >
+                        <strong>{campaign.name || 'Untitled campaign'}</strong>
+                        {campaign.subject ? (
+                          <span className="sub">{campaign.subject}</span>
+                        ) : null}
+                      </button>
                     </td>
                     <td>
                       <StatusBadge status={campaign.status} />
@@ -140,6 +206,13 @@ export function CampaignsView() {
                     </td>
                     <td>
                       <div className="row-actions">
+                        <button
+                          className="btn secondary small"
+                          type="button"
+                          onClick={() => openCampaign(campaign.id)}
+                        >
+                          Details
+                        </button>
                         {campaign.status === 'draft' ? (
                           <button
                             className="btn small"
@@ -176,6 +249,52 @@ export function CampaignsView() {
           </>
         )}
       </div>
+      {openId && detail ? (
+        <Modal title={detail.name || 'Campaign'} wide onClose={closeCampaign}>
+          {detailError ? <p className="warning">{detailError}</p> : null}
+          {detailLoading ? <p className="hint">Loading campaign…</p> : null}
+          <dl className="detail-list">
+            <dt>Status</dt>
+            <dd>
+              <StatusBadge status={detail.status || 'draft'} />
+            </dd>
+            <dt>Subject</dt>
+            <dd>{detail.subject || '—'}</dd>
+            <dt>From</dt>
+            <dd>{detail.from || '—'}</dd>
+            <dt>Audience</dt>
+            <dd>{audienceName || '—'}</dd>
+            {detail.previewText ? (
+              <>
+                <dt>Preview</dt>
+                <dd>{detail.previewText}</dd>
+              </>
+            ) : null}
+            {detail.replyTo ? (
+              <>
+                <dt>Reply to</dt>
+                <dd>{detail.replyTo}</dd>
+              </>
+            ) : null}
+            <dt>Created</dt>
+            <dd>{formatDate(detail.createdAt)}</dd>
+            <dt>Scheduled</dt>
+            <dd>{detail.scheduledAt ? formatDate(detail.scheduledAt) : '—'}</dd>
+            <dt>Sent</dt>
+            <dd>{detail.sentAt ? formatDate(detail.sentAt) : '—'}</dd>
+          </dl>
+          {detail.html ? (
+            <iframe
+              className="email-frame"
+              title="Campaign email"
+              sandbox=""
+              srcDoc={detail.html}
+            />
+          ) : detailLoading ? null : (
+            <p className="hint">This campaign has no email body to preview.</p>
+          )}
+        </Modal>
+      ) : null}
     </div>
   );
 }
