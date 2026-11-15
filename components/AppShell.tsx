@@ -109,6 +109,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.push(q ? `${base}?q=${encodeURIComponent(q)}` : base);
   }
 
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.replace('/login');
+    router.refresh();
+  }
+
+  if (pathname === '/login') return <>{children}</>;
+
   return (
     <div className="app-shell">
       <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
@@ -172,6 +180,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={toggleTheme}
             >
               {dark ? <IconSun /> : <IconMoon />}
+            </button>
+            <button className="btn secondary" type="button" onClick={logout}>
+              Log out
             </button>
             <span className="avatar" title="Jasmin Shukla" aria-label="Jasmin Shukla">
               JS
