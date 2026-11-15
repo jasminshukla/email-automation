@@ -46,3 +46,9 @@ export type Campaign = {
   previewText?: string | null;
   replyTo?: string | null;
 };
+
+export type CampaignStats = {
+  delivered: number;
+  bounced: number;
+  notSent: number;
+};

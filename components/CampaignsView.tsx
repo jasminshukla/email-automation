@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
-import type { Audience, Campaign } from '../lib/types';
+import type { Audience, Campaign, CampaignStats } from '../lib/types';
 import { EmptyState } from './EmptyState';
 import { IconPlus, IconSearch } from './Icons';
 import { Modal } from './Modal';
@@ -26,6 +26,7 @@ export function CampaignsView() {
   const [audienceName, setAudienceName] = useState('');
   const [detailError, setDetailError] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
+  const [stats, setStats] = useState<CampaignStats | null>(null);
 
   async function load() {
     try {
@@ -54,16 +55,18 @@ export function CampaignsView() {
     let cancelled = false;
     setDetailLoading(true);
     setDetailError('');
+    setStats(null);
     setDetail(
       campaigns.find((campaign) => campaign.id === openId) || { id: openId, status: '' },
     );
     Promise.all([
-      api<{ data: Campaign }>(`/api/campaigns/${openId}`),
+      api<{ data: Campaign; stats: CampaignStats }>(`/api/campaigns/${openId}`),
       api<{ data: Audience[] }>('/api/segments'),
     ])
       .then(([campaign, audiences]) => {
         if (cancelled) return;
         setDetail(campaign.data);
+        setStats(campaign.stats);
         const segmentId = campaign.data.segmentId || campaign.data.audienceId;
         const match = audiences.data.find((audience) => audience.id === segmentId);
         setAudienceName(match?.name || '');
@@ -115,6 +118,7 @@ export function CampaignsView() {
     const queryString = next.toString();
     router.replace(queryString ? `/campaigns?${queryString}` : '/campaigns');
     setDetail(null);
+    setStats(null);
     setAudienceName('');
     setDetailError('');
   }
@@ -253,6 +257,20 @@ export function CampaignsView() {
         <Modal title={detail.name || 'Campaign'} wide onClose={closeCampaign}>
           {detailError ? <p className="warning">{detailError}</p> : null}
           {detailLoading ? <p className="hint">Loading campaign…</p> : null}
+          <div className="outcome-row">
+            <div className="outcome">
+              <span>Delivered</span>
+              <strong>{stats ? stats.delivered : '—'}</strong>
+            </div>
+            <div className="outcome">
+              <span>Bounced</span>
+              <strong>{stats ? stats.bounced : '—'}</strong>
+            </div>
+            <div className="outcome">
+              <span>Not sent yet</span>
+              <strong>{stats ? stats.notSent : '—'}</strong>
+            </div>
+          </div>
           <dl className="detail-list">
             <dt>Status</dt>
             <dd>

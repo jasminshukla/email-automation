@@ -412,6 +412,29 @@ a.campaign-row:hover strong { text-decoration: underline; }
   cursor: pointer;
 }
 .link-btn:hover strong { text-decoration: underline; }
+.outcome-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.outcome {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--muted-bg) 45%, var(--card));
+}
+.outcome span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.outcome strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+  line-height: 1.1;
+}
 .detail-list {
   display: grid;
   grid-template-columns: 110px 1fr;
@@ -755,7 +778,7 @@ tbody tr:hover { background: color-mix(in oklch, var(--muted-bg) 65%, transparen
 }
 
 @media (max-width: 720px) {
-  .stats, .two-col, .drop-board { grid-template-columns: 1fr; }
+  .stats, .two-col, .drop-board, .outcome-row { grid-template-columns: 1fr; }
   .topbar { padding-inline: 12px; }
   .main { padding-inline: 12px; }
   .page-header h2 { font-size: 26px; }
